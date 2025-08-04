@@ -18,7 +18,6 @@ const adminRoutes = require('./routes/admin');
 const webRoutes = require('./routes/web');
 const apiStatsRoutes = require('./routes/apiStats');
 const geminiRoutes = require('./routes/geminiRoutes');
-const geminiV1betaRoutes = require('./routes/geminiV1betaRoutes');
 const openaiGeminiRoutes = require('./routes/openaiGeminiRoutes');
 const openaiClaudeRoutes = require('./routes/openaiClaudeRoutes');
 
@@ -67,6 +66,24 @@ class Application {
       logger.info('🕐 Initializing Claude account session windows...');
       const claudeAccountService = require('./services/claudeAccountService');
       await claudeAccountService.initializeSessionWindows();
+      
+      // 超早期拦截 /admin-next/ 请求 - 在所有中间件之前
+      this.app.use((req, res, next) => {
+        if (req.path === '/admin-next/' && req.method === 'GET') {
+          logger.warn(`🚨 INTERCEPTING /admin-next/ request at the very beginning!`);
+          const adminSpaPath = path.join(__dirname, '..', 'web', 'admin-spa', 'dist');
+          const indexPath = path.join(adminSpaPath, 'index.html');
+          
+          if (fs.existsSync(indexPath)) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            return res.sendFile(indexPath);
+          } else {
+            logger.error('❌ index.html not found at:', indexPath);
+            return res.status(404).send('index.html not found');
+          }
+        }
+        next();
+      });
       
       // 🛡️ 安全中间件
       this.app.use(helmet({
@@ -122,6 +139,14 @@ class Application {
         this.app.set('trust proxy', 1);
       }
 
+      // 调试中间件 - 拦截所有 /admin-next 请求
+      this.app.use((req, res, next) => {
+        if (req.path.startsWith('/admin-next')) {
+          logger.info(`🔍 DEBUG: Incoming request - method: ${req.method}, path: ${req.path}, originalUrl: ${req.originalUrl}`);
+        }
+        next();
+      });
+      
       // 🎨 新版管理界面静态文件服务（必须在其他路由之前）
       const adminSpaPath = path.join(__dirname, '..', 'web', 'admin-spa', 'dist');
       if (fs.existsSync(adminSpaPath)) {
@@ -130,40 +155,54 @@ class Application {
           res.redirect(301, '/admin-next/');
         });
         
-        // 安全的静态文件服务配置
-        this.app.use('/admin-next/', express.static(adminSpaPath, {
-          maxAge: '1d', // 缓存静态资源1天
-          etag: true,
-          lastModified: true,
-          index: 'index.html',
-          // 安全选项：禁止目录遍历
-          dotfiles: 'deny', // 拒绝访问点文件
-          redirect: false, // 禁止目录重定向
-          // 自定义错误处理
-          setHeaders: (res, path) => {
-            // 为不同类型的文件设置适当的缓存策略
-            if (path.endsWith('.js') || path.endsWith('.css')) {
-              res.setHeader('Cache-Control', 'public, max-age=31536000, immutable'); // 1年缓存
-            } else if (path.endsWith('.html')) {
-              res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-            }
+        // 使用 all 方法确保捕获所有 HTTP 方法
+        this.app.all('/admin-next/', (req, res) => {
+          logger.info('🎯 HIT: /admin-next/ route handler triggered!');
+          logger.info(`Method: ${req.method}, Path: ${req.path}, URL: ${req.url}`);
+          
+          if (req.method !== 'GET' && req.method !== 'HEAD') {
+            return res.status(405).send('Method Not Allowed');
           }
-        }));
+          
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          res.sendFile(path.join(adminSpaPath, 'index.html'));
+        });
         
-        // 处理SPA路由：所有未匹配的admin-next路径都返回index.html
-        this.app.get('/admin-next/*', (req, res, next) => {
-          // 安全检查：防止路径遍历攻击
+        // 处理所有其他 /admin-next/* 路径（但排除根路径）
+        this.app.get('/admin-next/*', (req, res) => {
+          // 如果是根路径，跳过（应该由上面的路由处理）
+          if (req.path === '/admin-next/') {
+            logger.error('❌ ERROR: /admin-next/ should not reach here!');
+            return res.status(500).send('Route configuration error');
+          }
+          
           const requestPath = req.path.replace('/admin-next/', '');
+          
+          // 安全检查
           if (requestPath.includes('..') || requestPath.includes('//') || requestPath.includes('\\')) {
             return res.status(400).json({ error: 'Invalid path' });
           }
           
-          // 如果是静态资源请求但文件不存在，返回404
+          // 检查是否为静态资源
+          const filePath = path.join(adminSpaPath, requestPath);
+          
+          // 如果文件存在且是静态资源
+          if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+            // 设置缓存头
+            if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
+              res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+            } else if (filePath.endsWith('.html')) {
+              res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            }
+            return res.sendFile(filePath);
+          }
+          
+          // 如果是静态资源但文件不存在
           if (requestPath.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf)$/i)) {
             return res.status(404).send('Not found');
           }
           
-          // 其他路径返回index.html（SPA路由处理）
+          // 其他所有路径返回 index.html（SPA 路由）
           res.sendFile(path.join(adminSpaPath, 'index.html'));
         });
         
@@ -174,7 +213,6 @@ class Application {
 
       // 🛣️ 路由
       this.app.use('/api', apiRoutes);
-      this.app.use('/api', geminiV1betaRoutes); // Gemini CLI v1beta API 支持
       this.app.use('/claude', apiRoutes); // /claude 路由别名，与 /api 功能相同
       this.app.use('/admin', adminRoutes);
       // 使用 web 路由（包含 auth 和页面重定向）
