@@ -101,12 +101,14 @@
                     <span
                       class="ml-2 rounded-full px-2 py-0.5 text-xs"
                       :class="
-                        account.status === 'active'
+                        account.isActive
                           ? 'bg-green-100 text-green-700'
-                          : 'bg-red-100 text-red-700'
+                          : account.status === 'unauthorized'
+                            ? 'bg-orange-100 text-orange-700'
+                            : 'bg-red-100 text-red-700'
                       "
                     >
-                      {{ account.status === 'active' ? '正常' : '异常' }}
+                      {{ getAccountStatusText(account) }}
                     </span>
                   </div>
                   <span class="text-xs text-gray-400">
@@ -134,12 +136,14 @@
                     <span
                       class="ml-2 rounded-full px-2 py-0.5 text-xs"
                       :class="
-                        account.status === 'active'
+                        account.isActive
                           ? 'bg-green-100 text-green-700'
-                          : 'bg-red-100 text-red-700'
+                          : account.status === 'unauthorized'
+                            ? 'bg-orange-100 text-orange-700'
+                            : 'bg-red-100 text-red-700'
                       "
                     >
-                      {{ account.status === 'active' ? '正常' : '异常' }}
+                      {{ getAccountStatusText(account) }}
                     </span>
                   </div>
                   <span class="text-xs text-gray-400">
@@ -224,13 +228,37 @@ const selectedLabel = computed(() => {
     const account = props.accounts.find(
       (a) => a.id === accountId && a.platform === 'claude-console'
     )
-    return account ? `${account.name} (${account.status === 'active' ? '正常' : '异常'})` : ''
+    return account ? `${account.name} (${getAccountStatusText(account)})` : ''
   }
 
   // OAuth 账号
   const account = props.accounts.find((a) => a.id === props.modelValue)
-  return account ? `${account.name} (${account.status === 'active' ? '正常' : '异常'})` : ''
+  return account ? `${account.name} (${getAccountStatusText(account)})` : ''
 })
+
+// 获取账户状态文本
+const getAccountStatusText = (account) => {
+  if (!account) return '未知'
+
+  // 优先使用 isActive 判断
+  if (account.isActive === false) {
+    // 根据 status 提供更详细的状态信息
+    switch (account.status) {
+      case 'unauthorized':
+        return '未授权'
+      case 'error':
+        return 'Token错误'
+      case 'created':
+        return '待验证'
+      case 'rate_limited':
+        return '限流中'
+      default:
+        return '异常'
+    }
+  }
+
+  return '正常'
+}
 
 // 按创建时间倒序排序账号
 const sortedAccounts = computed(() => {

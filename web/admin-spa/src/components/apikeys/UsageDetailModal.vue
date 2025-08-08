@@ -183,47 +183,23 @@
               </div>
 
               <div v-if="apiKey.rateLimitWindow > 0" class="space-y-2">
-                <div class="flex items-center justify-between text-sm">
-                  <span class="text-gray-600">时间窗口</span>
-                  <span class="font-semibold text-indigo-600">
-                    {{ apiKey.rateLimitWindow }} 分钟
-                  </span>
-                </div>
-
-                <!-- 请求次数限制 -->
-                <div v-if="apiKey.rateLimitRequests > 0" class="space-y-1">
-                  <div class="flex items-center justify-between text-sm">
-                    <span class="text-gray-600">请求限制</span>
-                    <span class="font-semibold text-gray-900">
-                      {{ apiKey.currentWindowRequests || 0 }} / {{ apiKey.rateLimitRequests }}
-                    </span>
-                  </div>
-                  <div class="h-2 w-full rounded-full bg-gray-200">
-                    <div
-                      class="h-2 rounded-full transition-all duration-300"
-                      :class="windowRequestProgressColor"
-                      :style="{ width: windowRequestProgress + '%' }"
-                    />
-                  </div>
-                </div>
-
-                <!-- Token使用量限制 -->
-                <div v-if="apiKey.tokenLimit > 0" class="space-y-1">
-                  <div class="flex items-center justify-between text-sm">
-                    <span class="text-gray-600">Token限制</span>
-                    <span class="font-semibold text-gray-900">
-                      {{ formatTokenCount(apiKey.currentWindowTokens || 0) }} /
-                      {{ formatTokenCount(apiKey.tokenLimit) }}
-                    </span>
-                  </div>
-                  <div class="h-2 w-full rounded-full bg-gray-200">
-                    <div
-                      class="h-2 rounded-full transition-all duration-300"
-                      :class="windowTokenProgressColor"
-                      :style="{ width: windowTokenProgress + '%' }"
-                    />
-                  </div>
-                </div>
+                <h5 class="text-sm font-medium text-gray-700">
+                  <i class="fas fa-clock mr-1 text-blue-500" />
+                  时间窗口限制
+                </h5>
+                <WindowCountdown
+                  :current-requests="apiKey.currentWindowRequests"
+                  :current-tokens="apiKey.currentWindowTokens"
+                  label="窗口状态"
+                  :rate-limit-window="apiKey.rateLimitWindow"
+                  :request-limit="apiKey.rateLimitRequests"
+                  :show-progress="true"
+                  :show-tooltip="true"
+                  :token-limit="apiKey.tokenLimit"
+                  :window-end-time="apiKey.windowEndTime"
+                  :window-remaining-seconds="apiKey.windowRemainingSeconds"
+                  :window-start-time="apiKey.windowStartTime"
+                />
               </div>
             </div>
           </div>
@@ -242,6 +218,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import WindowCountdown from './WindowCountdown.vue'
 
 const props = defineProps({
   show: {
@@ -282,35 +259,6 @@ const hasLimits = computed(() => {
 const dailyCostPercentage = computed(() => {
   if (!props.apiKey.dailyCostLimit || props.apiKey.dailyCostLimit === 0) return 0
   return (dailyCost.value / props.apiKey.dailyCostLimit) * 100
-})
-
-// 窗口请求进度
-const windowRequestProgress = computed(() => {
-  if (!props.apiKey.rateLimitRequests || props.apiKey.rateLimitRequests === 0) return 0
-  const percentage =
-    ((props.apiKey.currentWindowRequests || 0) / props.apiKey.rateLimitRequests) * 100
-  return Math.min(percentage, 100)
-})
-
-const windowRequestProgressColor = computed(() => {
-  const progress = windowRequestProgress.value
-  if (progress >= 100) return 'bg-red-500'
-  if (progress >= 80) return 'bg-yellow-500'
-  return 'bg-blue-500'
-})
-
-// 窗口Token进度
-const windowTokenProgress = computed(() => {
-  if (!props.apiKey.tokenLimit || props.apiKey.tokenLimit === 0) return 0
-  const percentage = ((props.apiKey.currentWindowTokens || 0) / props.apiKey.tokenLimit) * 100
-  return Math.min(percentage, 100)
-})
-
-const windowTokenProgressColor = computed(() => {
-  const progress = windowTokenProgress.value
-  if (progress >= 100) return 'bg-red-500'
-  if (progress >= 80) return 'bg-yellow-500'
-  return 'bg-purple-500'
 })
 
 // 方法

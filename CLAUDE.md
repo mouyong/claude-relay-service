@@ -63,13 +63,6 @@ npm run service:status        # 查看服务状态
 npm run service:logs          # 查看日志
 npm run service:stop          # 停止服务
 
-# CLI管理工具
-npm run cli admin             # 管理员操作
-npm run cli keys              # API Key管理
-npm run cli accounts          # Claude账户管理
-npm run cli status            # 系统状态
-```
-
 ### 开发环境配置
 必须配置的环境变量：
 - `JWT_SECRET`: JWT密钥（32字符以上随机字符串）
@@ -143,6 +136,13 @@ npm run setup  # 自动生成密钥并创建管理员账户
 - **健康检查**: /health端点提供系统状态
 
 ## 开发最佳实践
+
+### 代码格式化要求
+- **必须使用 Prettier 格式化所有代码**
+- 后端代码（src/）：运行 `npx prettier --write <file>` 格式化
+- 前端代码（web/admin-spa/）：已安装 `prettier-plugin-tailwindcss`，运行 `npx prettier --write <file>` 格式化
+- 提交前检查格式：`npx prettier --check <file>`
+- 格式化所有文件：`npm run format`（如果配置了此脚本）
 
 ### 代码修改原则
 - 对现有文件进行修改时，首先检查代码库的现有模式和风格

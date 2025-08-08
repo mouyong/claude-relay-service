@@ -21,19 +21,86 @@
 
       <div class="stat-card">
         <div class="flex items-center justify-between">
-          <div>
+          <div class="flex-1">
             <p class="mb-1 text-xs font-semibold text-gray-600 sm:text-sm">服务账户</p>
-            <p class="text-2xl font-bold text-gray-900 sm:text-3xl">
-              {{ dashboardData.totalAccounts }}
-            </p>
+            <div class="flex flex-wrap items-baseline gap-x-2">
+              <p class="text-2xl font-bold text-gray-900 sm:text-3xl">
+                {{ dashboardData.totalAccounts }}
+              </p>
+              <!-- 各平台账户数量展示 -->
+              <div v-if="dashboardData.accountsByPlatform" class="flex items-center gap-2">
+                <!-- Claude账户 -->
+                <div
+                  v-if="
+                    dashboardData.accountsByPlatform.claude &&
+                    dashboardData.accountsByPlatform.claude.total > 0
+                  "
+                  class="inline-flex items-center gap-0.5"
+                  :title="`Claude: ${dashboardData.accountsByPlatform.claude.total} 个 (正常: ${dashboardData.accountsByPlatform.claude.normal})`"
+                >
+                  <i class="fas fa-brain text-xs text-indigo-600" />
+                  <span class="text-xs font-medium text-gray-700">{{
+                    dashboardData.accountsByPlatform.claude.total
+                  }}</span>
+                </div>
+                <!-- Claude Console账户 -->
+                <div
+                  v-if="
+                    dashboardData.accountsByPlatform['claude-console'] &&
+                    dashboardData.accountsByPlatform['claude-console'].total > 0
+                  "
+                  class="inline-flex items-center gap-0.5"
+                  :title="`Console: ${dashboardData.accountsByPlatform['claude-console'].total} 个 (正常: ${dashboardData.accountsByPlatform['claude-console'].normal})`"
+                >
+                  <i class="fas fa-terminal text-xs text-purple-600" />
+                  <span class="text-xs font-medium text-gray-700">{{
+                    dashboardData.accountsByPlatform['claude-console'].total
+                  }}</span>
+                </div>
+                <!-- Gemini账户 -->
+                <div
+                  v-if="
+                    dashboardData.accountsByPlatform.gemini &&
+                    dashboardData.accountsByPlatform.gemini.total > 0
+                  "
+                  class="inline-flex items-center gap-0.5"
+                  :title="`Gemini: ${dashboardData.accountsByPlatform.gemini.total} 个 (正常: ${dashboardData.accountsByPlatform.gemini.normal})`"
+                >
+                  <i class="fas fa-robot text-xs text-yellow-600" />
+                  <span class="text-xs font-medium text-gray-700">{{
+                    dashboardData.accountsByPlatform.gemini.total
+                  }}</span>
+                </div>
+                <!-- Bedrock账户 -->
+                <div
+                  v-if="
+                    dashboardData.accountsByPlatform.bedrock &&
+                    dashboardData.accountsByPlatform.bedrock.total > 0
+                  "
+                  class="inline-flex items-center gap-0.5"
+                  :title="`Bedrock: ${dashboardData.accountsByPlatform.bedrock.total} 个 (正常: ${dashboardData.accountsByPlatform.bedrock.normal})`"
+                >
+                  <i class="fab fa-aws text-xs text-orange-600" />
+                  <span class="text-xs font-medium text-gray-700">{{
+                    dashboardData.accountsByPlatform.bedrock.total
+                  }}</span>
+                </div>
+              </div>
+            </div>
             <p class="mt-1 text-xs text-gray-500">
-              活跃: {{ dashboardData.activeAccounts || 0 }}
+              正常: {{ dashboardData.normalAccounts || 0 }}
+              <span v-if="dashboardData.abnormalAccounts > 0" class="text-red-600">
+                | 异常: {{ dashboardData.abnormalAccounts }}
+              </span>
+              <span v-if="dashboardData.pausedAccounts > 0" class="text-gray-600">
+                | 停止调度: {{ dashboardData.pausedAccounts }}
+              </span>
               <span v-if="dashboardData.rateLimitedAccounts > 0" class="text-yellow-600">
                 | 限流: {{ dashboardData.rateLimitedAccounts }}
               </span>
             </p>
           </div>
-          <div class="stat-icon flex-shrink-0 bg-gradient-to-br from-green-500 to-green-600">
+          <div class="stat-icon ml-2 flex-shrink-0 bg-gradient-to-br from-green-500 to-green-600">
             <i class="fas fa-user-circle" />
           </div>
         </div>

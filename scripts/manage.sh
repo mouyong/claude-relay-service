@@ -421,8 +421,8 @@ install_service() {
     print_info "安装项目依赖..."
     npm install
     
-    # 确保脚本有执行权限
-    if [ -f "$APP_DIR/scripts/manage.sh" ]; then
+    # 确保脚本有执行权限（仅在权限不正确时设置）
+    if [ -f "$APP_DIR/scripts/manage.sh" ] && [ ! -x "$APP_DIR/scripts/manage.sh" ]; then
         chmod +x "$APP_DIR/scripts/manage.sh"
         print_success "已设置脚本执行权限"
     fi
@@ -568,28 +568,79 @@ update_service() {
         stop_service
     fi
     
-    # 备份配置文件
+    # 备份配置文件（只备份.env，config.js可从example恢复）
     print_info "备份配置文件..."
     if [ -f ".env" ]; then
         cp .env .env.backup.$(date +%Y%m%d%H%M%S)
     fi
-    if [ -f "config/config.js" ]; then
-        cp config/config.js config/config.js.backup.$(date +%Y%m%d%H%M%S)
+    
+    # 检查本地修改
+    print_info "检查本地文件修改..."
+    local has_changes=false
+    if git status --porcelain | grep -v "^??" | grep -q .; then
+        has_changes=true
+        print_warning "检测到本地文件已修改："
+        git status --short | grep -v "^??"
+        echo ""
+        echo -e "${YELLOW}警告：更新将使用远程版本覆盖本地修改！${NC}"
+        
+        # 创建本地修改的备份
+        local backup_branch="backup-$(date +%Y%m%d-%H%M%S)"
+        print_info "创建本地修改备份分支: $backup_branch"
+        git stash push -m "Backup before update $(date +%Y-%m-%d)" >/dev/null 2>&1
+        git branch "$backup_branch" 2>/dev/null || true
+        
+        echo -e "${GREEN}已创建备份分支: $backup_branch${NC}"
+        echo "如需恢复，可执行: git checkout $backup_branch"
+        echo ""
+        
+        echo -n "是否继续更新？(y/N): "
+        read -n 1 confirm_update
+        echo
+        
+        if [[ ! "$confirm_update" =~ ^[Yy]$ ]]; then
+            print_info "已取消更新"
+            # 恢复 stash 的修改
+            git stash pop >/dev/null 2>&1 || true
+            # 如果之前在运行，重新启动服务
+            if [ "$was_running" = true ]; then
+                print_info "重新启动服务..."
+                start_service
+            fi
+            return 0
+        fi
     fi
     
-    # 拉取最新代码
-    print_info "拉取最新代码..."
-    if ! git pull origin main; then
-        print_error "拉取代码失败，请检查网络连接"
+    # 获取最新代码（强制使用远程版本）
+    print_info "获取最新代码..."
+    
+    # 先获取远程更新
+    if ! git fetch origin main; then
+        print_error "获取远程代码失败，请检查网络连接"
         return 1
     fi
+    
+    # 强制重置到远程版本
+    print_info "应用远程更新..."
+    if ! git reset --hard origin/main; then
+        print_error "重置到远程版本失败"
+        # 尝试恢复
+        print_info "尝试恢复..."
+        git reset --hard HEAD
+        return 1
+    fi
+    
+    # 清理未跟踪的文件（可选，保留用户新建的文件）
+    # git clean -fd  # 注释掉，避免删除用户的新文件
+    
+    print_success "代码已更新到最新版本"
     
     # 更新依赖
     print_info "更新依赖..."
     npm install
     
-    # 确保脚本有执行权限
-    if [ -f "$APP_DIR/scripts/manage.sh" ]; then
+    # 确保脚本有执行权限（仅在权限不正确时设置）
+    if [ -f "$APP_DIR/scripts/manage.sh" ] && [ ! -x "$APP_DIR/scripts/manage.sh" ]; then
         chmod +x "$APP_DIR/scripts/manage.sh"
     fi
     
@@ -599,8 +650,14 @@ update_service() {
     # 创建目标目录
     mkdir -p web/admin-spa/dist
     
-    # 清理旧的前端文件
-    rm -rf web/admin-spa/dist/*
+    # 清理旧的前端文件（保留用户自定义文件）
+    if [ -d "web/admin-spa/dist" ]; then
+        print_info "清理旧的前端文件..."
+        # 只删除已知的前端文件，保留用户可能添加的自定义文件
+        rm -rf web/admin-spa/dist/assets 2>/dev/null
+        rm -f web/admin-spa/dist/index.html 2>/dev/null
+        rm -f web/admin-spa/dist/favicon.ico 2>/dev/null
+    fi
     
     # 从 web-dist 分支获取构建好的文件
     if git ls-remote --heads origin web-dist | grep -q web-dist; then
@@ -609,14 +666,42 @@ update_service() {
         # 创建临时目录用于 clone
         TEMP_CLONE_DIR=$(mktemp -d)
         
-        # 使用 sparse-checkout 来只获取需要的文件
-        git clone --depth 1 --branch web-dist --single-branch \
-            https://github.com/Wei-Shaw/claude-relay-service.git \
-            "$TEMP_CLONE_DIR" 2>/dev/null || {
+        # 添加错误处理
+        if [ ! -d "$TEMP_CLONE_DIR" ]; then
+            print_error "无法创建临时目录"
+            return 1
+        fi
+        
+        # 使用 sparse-checkout 来只获取需要的文件，添加重试机制
+        local clone_success=false
+        for attempt in 1 2 3; do
+            print_info "尝试下载前端文件 (第 $attempt 次)..."
+            
+            if git clone --depth 1 --branch web-dist --single-branch \
+                https://github.com/Wei-Shaw/claude-relay-service.git \
+                "$TEMP_CLONE_DIR" 2>/dev/null; then
+                clone_success=true
+                break
+            fi
+            
             # 如果 HTTPS 失败，尝试使用当前仓库的 remote URL
             REPO_URL=$(git config --get remote.origin.url)
-            git clone --depth 1 --branch web-dist --single-branch "$REPO_URL" "$TEMP_CLONE_DIR"
-        }
+            if git clone --depth 1 --branch web-dist --single-branch "$REPO_URL" "$TEMP_CLONE_DIR" 2>/dev/null; then
+                clone_success=true
+                break
+            fi
+            
+            if [ $attempt -lt 3 ]; then
+                print_warning "下载失败，等待 2 秒后重试..."
+                sleep 2
+            fi
+        done
+        
+        if [ "$clone_success" = false ]; then
+            print_error "无法下载前端文件"
+            rm -rf "$TEMP_CLONE_DIR"
+            return 1
+        fi
         
         # 复制文件到目标目录（排除 .git 和 README.md）
         rsync -av --exclude='.git' --exclude='README.md' "$TEMP_CLONE_DIR/" web/admin-spa/dist/ 2>/dev/null || {
@@ -663,10 +748,32 @@ update_service() {
     
     print_success "更新完成！"
     
+    # 显示更新摘要
+    echo ""
+    echo -e "${BLUE}=== 更新摘要 ===${NC}"
+    
     # 显示版本信息
     if [ -f "$APP_DIR/VERSION" ]; then
-        echo -e "\n当前版本: ${GREEN}$(cat "$APP_DIR/VERSION")${NC}"
+        echo -e "当前版本: ${GREEN}$(cat "$APP_DIR/VERSION")${NC}"
     fi
+    
+    # 显示最新的提交信息
+    local latest_commit=$(git log -1 --oneline 2>/dev/null)
+    if [ -n "$latest_commit" ]; then
+        echo -e "最新提交: ${GREEN}$latest_commit${NC}"
+    fi
+    
+    # 显示备份信息
+    echo -e "\n${YELLOW}配置文件备份：${NC}"
+    ls -la .env.backup.* 2>/dev/null | tail -3 || echo "  无备份文件"
+    
+    # 提醒用户检查配置
+    echo -e "\n${YELLOW}提示：${NC}"
+    echo "  - 配置文件已自动备份"
+    echo "  - 如有本地修改已保存到备份分支"
+    echo "  - 建议检查 .env 和 config/config.js 配置"
+    
+    echo -e "\n${BLUE}==================${NC}"
 }
 
 # 卸载服务
@@ -871,6 +978,253 @@ update_model_pricing() {
     fi
 }
 
+# 切换分支
+switch_branch() {
+    if ! check_installation; then
+        print_error "服务未安装，请先运行: $0 install"
+        return 1
+    fi
+    
+    cd "$APP_DIR"
+    
+    # 获取当前分支
+    local current_branch=$(git branch --show-current 2>/dev/null)
+    if [ -z "$current_branch" ]; then
+        print_error "无法获取当前分支信息"
+        return 1
+    fi
+    
+    print_info "当前分支: ${GREEN}$current_branch${NC}"
+    
+    # 获取所有远程分支
+    print_info "获取远程分支列表..."
+    git fetch origin --prune >/dev/null 2>&1
+    
+    # 显示可用分支
+    echo -e "\n${YELLOW}可用分支：${NC}"
+    local branches=$(git branch -r | grep -v HEAD | sed 's/origin\///' | sed 's/^ *//')
+    local branch_array=()
+    local i=1
+    
+    while IFS= read -r branch; do
+        if [ "$branch" = "$current_branch" ]; then
+            echo -e "  $i) $branch ${GREEN}(当前)${NC}"
+        else
+            echo "  $i) $branch"
+        fi
+        branch_array+=("$branch")
+        ((i++))
+    done <<< "$branches"
+    
+    echo ""
+    echo -n "请选择要切换的分支 (输入编号或分支名，0 取消): "
+    read branch_choice
+    
+    # 处理用户输入
+    local target_branch=""
+    if [ "$branch_choice" = "0" ]; then
+        print_info "已取消切换"
+        return 0
+    elif [[ "$branch_choice" =~ ^[0-9]+$ ]]; then
+        # 用户输入的是编号
+        local index=$((branch_choice - 1))
+        if [ $index -ge 0 ] && [ $index -lt ${#branch_array[@]} ]; then
+            target_branch="${branch_array[$index]}"
+        else
+            print_error "无效的编号"
+            return 1
+        fi
+    else
+        # 用户输入的是分支名
+        target_branch="$branch_choice"
+        # 验证分支是否存在
+        if ! echo "$branches" | grep -q "^$target_branch$"; then
+            print_error "分支 '$target_branch' 不存在"
+            return 1
+        fi
+    fi
+    
+    # 如果是同一个分支，无需切换
+    if [ "$target_branch" = "$current_branch" ]; then
+        print_info "已经在分支 $target_branch 上"
+        return 0
+    fi
+    
+    print_info "准备切换到分支: ${GREEN}$target_branch${NC}"
+    
+    # 保存当前运行状态
+    local was_running=false
+    if pgrep -f "node.*src/app.js" > /dev/null; then
+        was_running=true
+        print_info "检测到服务正在运行，将在切换后自动重启..."
+        stop_service
+    fi
+    
+    # 处理本地修改（主要是权限变更导致的）
+    print_info "检查本地修改..."
+    
+    # 先重置所有权限相关的修改（特别是manage.sh的权限）
+    git status --porcelain | while read -r line; do
+        local file=$(echo "$line" | awk '{print $2}')
+        if [ -n "$file" ]; then
+            # 检查是否只是权限变更
+            if git diff --summary "$file" 2>/dev/null | grep -q "mode change"; then
+                print_info "重置文件权限变更: $file"
+                git checkout HEAD -- "$file" 2>/dev/null || true
+            fi
+        fi
+    done
+    
+    # 检查是否还有其他实质性修改
+    if git status --porcelain | grep -v "^??" | grep -q .; then
+        print_warning "检测到本地文件修改："
+        git status --short | grep -v "^??"
+        echo ""
+        echo -n "是否要保存这些修改？(y/N): "
+        read -n 1 save_changes
+        echo
+        
+        if [[ "$save_changes" =~ ^[Yy]$ ]]; then
+            # 暂存修改
+            print_info "暂存本地修改..."
+            git stash push -m "Branch switch from $current_branch to $target_branch $(date +%Y-%m-%d)" >/dev/null 2>&1
+        else
+            # 丢弃修改
+            print_info "丢弃本地修改..."
+            git reset --hard HEAD >/dev/null 2>&1
+        fi
+    fi
+    
+    # 切换分支
+    print_info "切换分支..."
+    
+    # 检查本地是否已有该分支
+    if git show-ref --verify --quiet "refs/heads/$target_branch"; then
+        # 本地已有分支，切换并更新
+        if ! git checkout "$target_branch" 2>/dev/null; then
+            print_error "切换分支失败"
+            return 1
+        fi
+        
+        # 更新到最新
+        print_info "更新到远程最新版本..."
+        git pull origin "$target_branch" --rebase 2>/dev/null || {
+            # 如果rebase失败，使用reset
+            print_warning "更新失败，强制同步到远程版本..."
+            git fetch origin "$target_branch"
+            git reset --hard "origin/$target_branch"
+        }
+    else
+        # 创建并切换到新分支
+        if ! git checkout -b "$target_branch" "origin/$target_branch" 2>/dev/null; then
+            print_error "创建并切换分支失败"
+            return 1
+        fi
+    fi
+    
+    print_success "已切换到分支: $target_branch"
+    
+    # 确保脚本有执行权限（切换分支后必须执行）
+    if [ -f "$APP_DIR/scripts/manage.sh" ]; then
+        chmod +x "$APP_DIR/scripts/manage.sh"
+        print_info "已设置脚本执行权限"
+    fi
+    
+    # 更新依赖（如果package.json有变化）
+    if git diff "$current_branch..$target_branch" --name-only | grep -q "package.json"; then
+        print_info "检测到 package.json 变化，更新依赖..."
+        npm install
+    fi
+    
+    # 更新前端文件（如果切换到不同版本）
+    if [ "$target_branch" != "$current_branch" ]; then
+        print_info "更新前端文件..."
+        
+        # 创建目标目录
+        mkdir -p web/admin-spa/dist
+        
+        # 清理旧的前端文件
+        if [ -d "web/admin-spa/dist" ]; then
+            rm -rf web/admin-spa/dist/* 2>/dev/null || true
+        fi
+        
+        # 尝试从对应的 web-dist 分支获取前端文件
+        if git ls-remote --heads origin "web-dist-$target_branch" | grep -q "web-dist-$target_branch"; then
+            print_info "从 web-dist-$target_branch 分支下载前端文件..."
+            local web_branch="web-dist-$target_branch"
+        elif git ls-remote --heads origin web-dist | grep -q web-dist; then
+            print_info "从 web-dist 分支下载前端文件..."
+            local web_branch="web-dist"
+        else
+            print_warning "未找到预构建的前端文件"
+            web_branch=""
+        fi
+        
+        if [ -n "$web_branch" ]; then
+            # 创建临时目录用于 clone
+            TEMP_CLONE_DIR=$(mktemp -d)
+            
+            # 下载前端文件
+            if git clone --depth 1 --branch "$web_branch" --single-branch \
+                https://github.com/Wei-Shaw/claude-relay-service.git \
+                "$TEMP_CLONE_DIR" 2>/dev/null; then
+                
+                # 复制文件到目标目录
+                rsync -av --exclude='.git' --exclude='README.md' "$TEMP_CLONE_DIR/" web/admin-spa/dist/ 2>/dev/null || {
+                    cp -r "$TEMP_CLONE_DIR"/* web/admin-spa/dist/ 2>/dev/null
+                    rm -rf web/admin-spa/dist/.git 2>/dev/null
+                    rm -f web/admin-spa/dist/README.md 2>/dev/null
+                }
+                
+                print_success "前端文件更新完成"
+            else
+                print_warning "下载前端文件失败"
+            fi
+            
+            # 清理临时目录
+            rm -rf "$TEMP_CLONE_DIR"
+        fi
+    fi
+    
+    # 检查是否有暂存的修改可以恢复
+    if [[ "$save_changes" =~ ^[Yy]$ ]] && git stash list | grep -q "Branch switch from $current_branch to $target_branch"; then
+        echo ""
+        echo -n "是否要恢复之前暂存的修改？(y/N): "
+        read -n 1 restore_stash
+        echo
+        
+        if [[ "$restore_stash" =~ ^[Yy]$ ]]; then
+            print_info "恢复暂存的修改..."
+            git stash pop >/dev/null 2>&1 || print_warning "恢复修改时出现冲突，请手动解决"
+        fi
+    fi
+    
+    # 如果之前在运行，则重新启动服务
+    if [ "$was_running" = true ]; then
+        print_info "重新启动服务..."
+        start_service
+    fi
+    
+    # 显示切换后的信息
+    echo ""
+    echo -e "${GREEN}=== 分支切换完成 ===${NC}"
+    echo -e "当前分支: ${GREEN}$target_branch${NC}"
+    
+    # 显示版本信息
+    if [ -f "$APP_DIR/VERSION" ]; then
+        echo -e "当前版本: ${GREEN}$(cat "$APP_DIR/VERSION")${NC}"
+    fi
+    
+    # 显示最新提交
+    local latest_commit=$(git log -1 --oneline 2>/dev/null)
+    if [ -n "$latest_commit" ]; then
+        echo -e "最新提交: ${GREEN}$latest_commit${NC}"
+    fi
+    
+    echo ""
+    print_info "提示：如遇到问题，可以运行 'crs update' 强制更新到最新版本"
+}
+
 # 显示状态
 show_status() {
     echo -e "\n${BLUE}=== Claude Relay Service 状态 ===${NC}"
@@ -957,6 +1311,7 @@ show_help() {
     echo "  stop           - 停止服务"
     echo "  restart        - 重启服务"
     echo "  status         - 查看状态"
+    echo "  switch-branch  - 切换分支"
     echo "  update-pricing - 更新模型价格数据"
     echo "  symlink        - 创建 crs 快捷命令"
     echo "  help           - 显示帮助"
@@ -1034,11 +1389,12 @@ show_menu() {
         echo "  3) 停止服务"
         echo "  4) 重启服务"
         echo "  5) 更新服务"
-        echo "  6) 更新模型价格"
-        echo "  7) 卸载服务"
-        echo "  8) 退出"
+        echo "  6) 切换分支"
+        echo "  7) 更新模型价格"
+        echo "  8) 卸载服务"
+        echo "  9) 退出"
         echo ""
-        echo -n "请输入选项 [1-8]: "
+        echo -n "请输入选项 [1-9]: "
     fi
 }
 
@@ -1126,18 +1482,24 @@ handle_menu_choice() {
                 ;;
             6)
                 echo ""
-                update_model_pricing
+                switch_branch
                 echo -n "按回车键继续..."
                 read
                 ;;
             7)
+                echo ""
+                update_model_pricing
+                echo -n "按回车键继续..."
+                read
+                ;;
+            8)
                 echo ""
                 uninstall_service
                 if [ $? -eq 0 ]; then
                     exit 0
                 fi
                 ;;
-            8)
+            9)
                 echo "退出管理工具"
                 exit 0
                 ;;
@@ -1309,6 +1671,9 @@ main() {
             ;;
         status)
             show_status
+            ;;
+        switch-branch)
+            switch_branch
             ;;
         update-pricing)
             update_model_pricing

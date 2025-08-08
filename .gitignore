@@ -142,6 +142,9 @@ desktop.ini
 # Backup files
 *.bak
 *.backup
+*.backup.*
+.env.backup.*
+config.js.backup.*
 *~
 
 # Archive files (unless specifically needed)

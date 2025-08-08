@@ -169,13 +169,37 @@ class ClaudeRelayService {
         clientResponse.removeListener('close', handleClientDisconnect)
       }
 
-      // 检查响应是否为限流错误
+      // 检查响应是否为限流错误或认证错误
       if (response.statusCode !== 200 && response.statusCode !== 201) {
         let isRateLimited = false
         let rateLimitResetTimestamp = null
 
+        // 检查是否为401状态码（未授权）
+        if (response.statusCode === 401) {
+          logger.warn(`🔐 Unauthorized error (401) detected for account ${accountId}`)
+
+          // 记录401错误
+          await this.recordUnauthorizedError(accountId)
+
+          // 检查是否需要标记为异常（连续3次401）
+          const errorCount = await this.getUnauthorizedErrorCount(accountId)
+          logger.info(
+            `🔐 Account ${accountId} has ${errorCount} consecutive 401 errors in the last 5 minutes`
+          )
+
+          if (errorCount >= 3) {
+            logger.error(
+              `❌ Account ${accountId} exceeded 401 error threshold (${errorCount} errors), marking as unauthorized`
+            )
+            await unifiedClaudeScheduler.markAccountUnauthorized(
+              accountId,
+              accountType,
+              sessionHash
+            )
+          }
+        }
         // 检查是否为429状态码
-        if (response.statusCode === 429) {
+        else if (response.statusCode === 429) {
           isRateLimited = true
 
           // 提取限流重置时间戳
@@ -224,6 +248,8 @@ class ClaudeRelayService {
           )
         }
       } else if (response.statusCode === 200 || response.statusCode === 201) {
+        // 请求成功，清除401错误计数
+        await this.clearUnauthorizedErrors(accountId)
         // 如果请求成功，检查并移除限流状态
         const isRateLimited = await unifiedClaudeScheduler.isAccountRateLimited(
           accountId,
@@ -1293,6 +1319,49 @@ class ClaudeRelayService {
     }
 
     throw lastError
+  }
+
+  // 🔐 记录401未授权错误
+  async recordUnauthorizedError(accountId) {
+    try {
+      const key = `claude_account:${accountId}:401_errors`
+      const redis = require('../models/redis')
+
+      // 增加错误计数，设置5分钟过期时间
+      await redis.client.incr(key)
+      await redis.client.expire(key, 300) // 5分钟
+
+      logger.info(`📝 Recorded 401 error for account ${accountId}`)
+    } catch (error) {
+      logger.error(`❌ Failed to record 401 error for account ${accountId}:`, error)
+    }
+  }
+
+  // 🔍 获取401错误计数
+  async getUnauthorizedErrorCount(accountId) {
+    try {
+      const key = `claude_account:${accountId}:401_errors`
+      const redis = require('../models/redis')
+
+      const count = await redis.client.get(key)
+      return parseInt(count) || 0
+    } catch (error) {
+      logger.error(`❌ Failed to get 401 error count for account ${accountId}:`, error)
+      return 0
+    }
+  }
+
+  // 🧹 清除401错误计数
+  async clearUnauthorizedErrors(accountId) {
+    try {
+      const key = `claude_account:${accountId}:401_errors`
+      const redis = require('../models/redis')
+
+      await redis.client.del(key)
+      logger.info(`✅ Cleared 401 error count for account ${accountId}`)
+    } catch (error) {
+      logger.error(`❌ Failed to clear 401 errors for account ${accountId}:`, error)
+    }
   }
 
   // 🎯 健康检查

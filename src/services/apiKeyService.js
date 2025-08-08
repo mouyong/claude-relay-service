@@ -213,12 +213,45 @@ class ApiKeyService {
         if (key.rateLimitWindow > 0) {
           const requestCountKey = `rate_limit:requests:${key.id}`
           const tokenCountKey = `rate_limit:tokens:${key.id}`
+          const windowStartKey = `rate_limit:window_start:${key.id}`
 
           key.currentWindowRequests = parseInt((await client.get(requestCountKey)) || '0')
           key.currentWindowTokens = parseInt((await client.get(tokenCountKey)) || '0')
+
+          // 获取窗口开始时间和计算剩余时间
+          const windowStart = await client.get(windowStartKey)
+          if (windowStart) {
+            const now = Date.now()
+            const windowStartTime = parseInt(windowStart)
+            const windowDuration = key.rateLimitWindow * 60 * 1000 // 转换为毫秒
+            const windowEndTime = windowStartTime + windowDuration
+
+            // 如果窗口还有效
+            if (now < windowEndTime) {
+              key.windowStartTime = windowStartTime
+              key.windowEndTime = windowEndTime
+              key.windowRemainingSeconds = Math.max(0, Math.floor((windowEndTime - now) / 1000))
+            } else {
+              // 窗口已过期，下次请求会重置
+              key.windowStartTime = null
+              key.windowEndTime = null
+              key.windowRemainingSeconds = 0
+              // 重置计数为0，因为窗口已过期
+              key.currentWindowRequests = 0
+              key.currentWindowTokens = 0
+            }
+          } else {
+            // 窗口还未开始（没有任何请求）
+            key.windowStartTime = null
+            key.windowEndTime = null
+            key.windowRemainingSeconds = null
+          }
         } else {
           key.currentWindowRequests = 0
           key.currentWindowTokens = 0
+          key.windowStartTime = null
+          key.windowEndTime = null
+          key.windowRemainingSeconds = null
         }
 
         try {
