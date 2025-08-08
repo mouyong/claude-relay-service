@@ -10,8 +10,17 @@ export const useDashboardStore = defineStore('dashboard', () => {
     totalApiKeys: 0,
     activeApiKeys: 0,
     totalAccounts: 0,
-    activeAccounts: 0,
+    normalAccounts: 0,
+    abnormalAccounts: 0,
+    pausedAccounts: 0,
+    activeAccounts: 0, // 保留兼容
     rateLimitedAccounts: 0,
+    accountsByPlatform: {
+      claude: { total: 0, normal: 0, abnormal: 0, paused: 0, rateLimited: 0 },
+      'claude-console': { total: 0, normal: 0, abnormal: 0, paused: 0, rateLimited: 0 },
+      gemini: { total: 0, normal: 0, abnormal: 0, paused: 0, rateLimited: 0 },
+      bedrock: { total: 0, normal: 0, abnormal: 0, paused: 0, rateLimited: 0 }
+    },
     todayRequests: 0,
     totalRequests: 0,
     todayTokens: 0,
@@ -152,9 +161,21 @@ export const useDashboardStore = defineStore('dashboard', () => {
         dashboardData.value = {
           totalApiKeys: overview.totalApiKeys || 0,
           activeApiKeys: overview.activeApiKeys || 0,
-          totalAccounts: overview.totalClaudeAccounts || 0,
-          activeAccounts: overview.activeClaudeAccounts || 0,
-          rateLimitedAccounts: overview.rateLimitedClaudeAccounts || 0,
+          // 使用新的统一统计字段
+          totalAccounts: overview.totalAccounts || overview.totalClaudeAccounts || 0,
+          normalAccounts: overview.normalAccounts || 0,
+          abnormalAccounts: overview.abnormalAccounts || 0,
+          pausedAccounts: overview.pausedAccounts || 0,
+          activeAccounts: overview.activeAccounts || overview.activeClaudeAccounts || 0, // 兼容
+          rateLimitedAccounts:
+            overview.rateLimitedAccounts || overview.rateLimitedClaudeAccounts || 0,
+          // 各平台详细统计
+          accountsByPlatform: overview.accountsByPlatform || {
+            claude: { total: 0, normal: 0, abnormal: 0, paused: 0, rateLimited: 0 },
+            'claude-console': { total: 0, normal: 0, abnormal: 0, paused: 0, rateLimited: 0 },
+            gemini: { total: 0, normal: 0, abnormal: 0, paused: 0, rateLimited: 0 },
+            bedrock: { total: 0, normal: 0, abnormal: 0, paused: 0, rateLimited: 0 }
+          },
           todayRequests: recentActivity.requestsToday || 0,
           totalRequests: overview.totalRequestsUsed || 0,
           todayTokens: recentActivity.tokensToday || 0,

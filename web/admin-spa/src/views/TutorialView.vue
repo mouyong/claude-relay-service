@@ -114,19 +114,15 @@
         </div>
       </div>
 
-      <!-- 第二步：安装 Git Bash -->
+      <!-- 第二步：安装 Claude Code -->
       <div class="mb-4 sm:mb-10 sm:mb-6">
         <h4 class="mb-3 flex items-center text-lg font-semibold text-gray-800 sm:mb-4 sm:text-xl">
           <span
             class="mr-2 flex h-6 w-6 items-center justify-center rounded-full bg-green-500 text-xs font-bold text-white sm:mr-3 sm:h-8 sm:w-8 sm:text-sm"
             >2</span
           >
-          安装 Git Bash
+          安装 Claude Code
         </h4>
-        <p class="mb-4 text-sm text-gray-600 sm:mb-4 sm:mb-6 sm:text-base">
-          Windows 环境下需要使用 Git Bash 安装Claude code。安装完成后，环境变量设置和使用 Claude
-          Code 仍然在普通的 PowerShell 或 CMD 中进行。
-        </p>
 
         <div
           class="mb-4 rounded-xl border border-green-100 bg-gradient-to-r from-green-50 to-emerald-50 p-4 sm:mb-6 sm:p-6"
@@ -134,78 +130,16 @@
           <h5
             class="mb-2 flex items-center text-base font-semibold text-gray-800 sm:mb-3 sm:text-lg"
           >
-            <i class="fab fa-git-alt mr-2 text-green-600" />
-            下载并安装 Git for Windows
-          </h5>
-          <ol
-            class="mb-4 ml-2 list-inside list-decimal space-y-1 text-xs text-gray-600 sm:ml-4 sm:space-y-2 sm:text-sm"
-          >
-            <li>
-              访问
-              <code class="rounded bg-gray-100 px-1 py-1 text-xs sm:px-2 sm:text-sm"
-                >https://git-scm.com/downloads/win</code
-              >
-            </li>
-            <li>点击 "Download for Windows" 下载安装包</li>
-            <li>
-              运行下载的
-              <code class="rounded bg-gray-100 px-1 py-1 text-xs sm:px-2 sm:text-sm">.exe</code>
-              安装文件
-            </li>
-            <li>在安装过程中保持默认设置，直接点击 "Next" 完成安装</li>
-          </ol>
-          <div class="rounded-lg border border-green-200 bg-green-50 p-3 sm:p-4">
-            <h6 class="mb-2 text-sm font-medium text-green-800 sm:text-base">安装完成后</h6>
-            <ul class="space-y-1 text-xs text-green-700 sm:text-sm">
-              <li>• 在任意文件夹右键可以看到 "Git Bash Here" 选项</li>
-              <li>• 也可以从开始菜单启动 "Git Bash"</li>
-              <li>• 只需要在 Git Bash 中运行 npm install 命令</li>
-              <li>• 后续的环境变量设置和使用都在 PowerShell/CMD 中</li>
-            </ul>
-          </div>
-        </div>
-
-        <!-- 验证安装 -->
-        <div class="rounded-lg border border-green-200 bg-green-50 p-3 sm:p-4">
-          <h6 class="mb-2 text-sm font-medium text-green-800 sm:text-base">验证 Git Bash 安装</h6>
-          <p class="mb-2 text-xs text-green-700 sm:mb-3 sm:text-sm">
-            打开 Git Bash，输入以下命令验证：
-          </p>
-          <div
-            class="overflow-x-auto rounded bg-gray-900 p-2 font-mono text-xs text-green-400 sm:p-3 sm:text-sm"
-          >
-            <div class="whitespace-nowrap text-gray-300">git --version</div>
-          </div>
-          <p class="mt-2 text-xs text-green-700 sm:text-sm">如果显示 Git 版本号，说明安装成功！</p>
-        </div>
-      </div>
-
-      <!-- 第三步：安装 Claude Code -->
-      <div class="mb-4 sm:mb-10 sm:mb-6">
-        <h4 class="mb-3 flex items-center text-lg font-semibold text-gray-800 sm:mb-4 sm:text-xl">
-          <span
-            class="mr-2 flex h-6 w-6 items-center justify-center rounded-full bg-purple-500 text-xs font-bold text-white sm:mr-3 sm:h-8 sm:w-8 sm:text-sm"
-            >3</span
-          >
-          安装 Claude Code
-        </h4>
-
-        <div
-          class="mb-4 rounded-xl border border-purple-100 bg-gradient-to-r from-purple-50 to-pink-50 p-4 sm:mb-6 sm:p-6"
-        >
-          <h5
-            class="mb-2 flex items-center text-base font-semibold text-gray-800 sm:mb-3 sm:text-lg"
-          >
-            <i class="fas fa-download mr-2 text-purple-600" />
+            <i class="fas fa-download mr-2 text-green-600" />
             安装 Claude Code
           </h5>
           <p class="mb-3 text-sm text-gray-700 sm:mb-4 sm:text-base">
-            打开 Git Bash（重要：不要使用 PowerShell），运行以下命令：
+            打开 PowerShell 或 CMD，运行以下命令：
           </p>
           <div
             class="mb-4 overflow-x-auto rounded-lg bg-gray-900 p-3 font-mono text-xs text-green-400 sm:p-4 sm:text-sm"
           >
-            <div class="mb-2"># 在 Git Bash 中全局安装 Claude Code</div>
+            <div class="mb-2"># 全局安装 Claude Code</div>
             <div class="whitespace-nowrap text-gray-300">
               npm install -g @anthropic-ai/claude-code
             </div>
@@ -214,11 +148,11 @@
             这个命令会从 npm 官方仓库下载并安装最新版本的 Claude Code。
           </p>
 
-          <div class="mt-4 rounded-lg border border-yellow-200 bg-yellow-50 p-3 sm:p-4">
-            <h6 class="mb-2 text-sm font-medium text-yellow-800 sm:text-base">重要提醒</h6>
-            <ul class="space-y-1 text-xs text-yellow-700 sm:text-sm">
-              <li>• 必须在 Git Bash 中运行，不要在 PowerShell 中运行</li>
-              <li>• 如果遇到权限问题，可以尝试在 Git Bash 中使用 sudo 命令</li>
+          <div class="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-3 sm:p-4">
+            <h6 class="mb-2 text-sm font-medium text-blue-800 sm:text-base">提示</h6>
+            <ul class="space-y-1 text-xs text-blue-700 sm:text-sm">
+              <li>• 建议使用 PowerShell 而不是 CMD，功能更强大</li>
+              <li>• 如果遇到权限问题，以管理员身份运行 PowerShell</li>
             </ul>
           </div>
         </div>
@@ -238,23 +172,23 @@
         </div>
       </div>
 
-      <!-- 第四步：设置环境变量 -->
+      <!-- 第三步：设置环境变量 -->
       <div class="mb-6 sm:mb-10">
         <h4 class="mb-3 flex items-center text-lg font-semibold text-gray-800 sm:mb-4 sm:text-xl">
           <span
-            class="mr-2 flex h-6 w-6 items-center justify-center rounded-full bg-orange-500 text-xs font-bold text-white sm:mr-3 sm:h-8 sm:w-8 sm:text-sm"
-            >4</span
+            class="mr-2 flex h-6 w-6 items-center justify-center rounded-full bg-purple-500 text-xs font-bold text-white sm:mr-3 sm:h-8 sm:w-8 sm:text-sm"
+            >3</span
           >
           设置环境变量
         </h4>
 
         <div
-          class="mb-4 rounded-xl border border-orange-100 bg-gradient-to-r from-orange-50 to-yellow-50 p-4 sm:mb-6 sm:p-6"
+          class="mb-4 rounded-xl border border-purple-100 bg-gradient-to-r from-purple-50 to-pink-50 p-4 sm:mb-6 sm:p-6"
         >
           <h5
             class="mb-2 flex items-center text-base font-semibold text-gray-800 sm:mb-3 sm:text-lg"
           >
-            <i class="fas fa-cog mr-2 text-orange-600" />
+            <i class="fas fa-cog mr-2 text-purple-600" />
             配置 Claude Code 环境变量
           </h5>
           <p class="mb-3 text-sm text-gray-700 sm:mb-4 sm:text-base">
@@ -262,9 +196,9 @@
           </p>
 
           <div class="space-y-4">
-            <div class="rounded-lg border border-orange-200 bg-white p-3 sm:p-4">
+            <div class="rounded-lg border border-purple-200 bg-white p-3 sm:p-4">
               <h6 class="mb-2 text-sm font-medium text-gray-800 sm:text-base">
-                方法一：PowerShell 临时设置（推荐）
+                方法一：PowerShell 临时设置（当前会话）
               </h6>
               <p class="mb-3 text-sm text-gray-600">在 PowerShell 中运行以下命令：</p>
               <div
@@ -282,26 +216,44 @@
               </p>
             </div>
 
-            <div class="rounded-lg border border-orange-200 bg-white p-3 sm:p-4">
+            <div class="rounded-lg border border-purple-200 bg-white p-3 sm:p-4">
               <h6 class="mb-2 text-sm font-medium text-gray-800 sm:text-base">
-                方法二：系统环境变量（永久设置）
+                方法二：PowerShell 永久设置（用户级）
               </h6>
-              <ol class="list-inside list-decimal space-y-1 text-xs text-gray-600 sm:text-sm">
-                <li>右键"此电脑" → "属性" → "高级系统设置"</li>
-                <li>点击"环境变量"按钮</li>
-                <li>在"用户变量"或"系统变量"中点击"新建"</li>
-                <li>添加以下两个变量：</li>
-              </ol>
-              <div class="mt-3 space-y-2">
-                <div class="rounded bg-gray-100 p-2 text-sm">
-                  <strong>变量名：</strong> ANTHROPIC_BASE_URL<br />
-                  <strong>变量值：</strong> <span class="font-mono">{{ currentBaseUrl }}</span>
+              <p class="mb-3 text-sm text-gray-600">
+                在 PowerShell 中运行以下命令设置用户级环境变量：
+              </p>
+              <div
+                class="mb-3 overflow-x-auto rounded bg-gray-900 p-2 font-mono text-xs text-green-400 sm:p-3 sm:text-sm"
+              >
+                <div class="mb-2"># 设置用户级环境变量（永久生效）</div>
+                <div class="whitespace-nowrap text-gray-300">
+                  [System.Environment]::SetEnvironmentVariable("ANTHROPIC_BASE_URL", "{{
+                    currentBaseUrl
+                  }}", [System.EnvironmentVariableTarget]::User)
                 </div>
-                <div class="rounded bg-gray-100 p-2 text-sm">
-                  <strong>变量名：</strong> ANTHROPIC_AUTH_TOKEN<br />
-                  <strong>变量值：</strong> <span class="font-mono">你的API密钥</span>
+                <div class="whitespace-nowrap text-gray-300">
+                  [System.Environment]::SetEnvironmentVariable("ANTHROPIC_AUTH_TOKEN",
+                  "你的API密钥", [System.EnvironmentVariableTarget]::User)
                 </div>
               </div>
+              <p class="mb-3 text-sm text-gray-600">查看已设置的环境变量：</p>
+              <div
+                class="overflow-x-auto rounded bg-gray-900 p-2 font-mono text-xs text-green-400 sm:p-3 sm:text-sm"
+              >
+                <div class="mb-2"># 查看用户级环境变量</div>
+                <div class="whitespace-nowrap text-gray-300">
+                  [System.Environment]::GetEnvironmentVariable("ANTHROPIC_BASE_URL",
+                  [System.EnvironmentVariableTarget]::User)
+                </div>
+                <div class="whitespace-nowrap text-gray-300">
+                  [System.Environment]::GetEnvironmentVariable("ANTHROPIC_AUTH_TOKEN",
+                  [System.EnvironmentVariableTarget]::User)
+                </div>
+              </div>
+              <p class="mt-2 text-xs text-blue-700">
+                💡 设置后需要重新打开 PowerShell 窗口才能生效。
+              </p>
             </div>
           </div>
         </div>
@@ -389,23 +341,30 @@
 
             <div class="rounded-lg border border-green-200 bg-white p-3 sm:p-4">
               <h6 class="mb-2 text-sm font-medium text-gray-800 sm:text-base">
-                系统环境变量（永久设置）
+                PowerShell 永久设置（用户级）
               </h6>
-              <p class="mb-3 text-sm text-gray-600">在系统环境变量中添加：</p>
-              <div class="space-y-2">
-                <div class="rounded bg-gray-100 p-2 text-sm">
-                  <strong>变量名：</strong> CODE_ASSIST_ENDPOINT<br />
-                  <strong>变量值：</strong> <span class="font-mono">{{ geminiBaseUrl }}</span>
+              <p class="mb-3 text-sm text-gray-600">在 PowerShell 中运行以下命令：</p>
+              <div
+                class="mb-3 overflow-x-auto rounded bg-gray-900 p-2 font-mono text-xs text-green-400 sm:p-3 sm:text-sm"
+              >
+                <div class="mb-2"># 设置用户级环境变量（永久生效）</div>
+                <div class="whitespace-nowrap text-gray-300">
+                  [System.Environment]::SetEnvironmentVariable("CODE_ASSIST_ENDPOINT", "{{
+                    geminiBaseUrl
+                  }}", [System.EnvironmentVariableTarget]::User)
                 </div>
-                <div class="rounded bg-gray-100 p-2 text-sm">
-                  <strong>变量名：</strong> GOOGLE_CLOUD_ACCESS_TOKEN<br />
-                  <strong>变量值：</strong> <span class="font-mono">你的API密钥</span>
+                <div class="whitespace-nowrap text-gray-300">
+                  [System.Environment]::SetEnvironmentVariable("GOOGLE_CLOUD_ACCESS_TOKEN",
+                  "你的API密钥", [System.EnvironmentVariableTarget]::User)
                 </div>
-                <div class="rounded bg-gray-100 p-2 text-sm">
-                  <strong>变量名：</strong> GOOGLE_GENAI_USE_GCA<br />
-                  <strong>变量值：</strong> <span class="font-mono">true</span>
+                <div class="whitespace-nowrap text-gray-300">
+                  [System.Environment]::SetEnvironmentVariable("GOOGLE_GENAI_USE_GCA", "true",
+                  [System.EnvironmentVariableTarget]::User)
                 </div>
               </div>
+              <p class="mt-2 text-xs text-blue-700">
+                💡 设置后需要重新打开 PowerShell 窗口才能生效。
+              </p>
             </div>
 
             <div class="rounded-lg border border-green-200 bg-green-50 p-3 sm:p-4">
@@ -425,17 +384,17 @@
         </div>
       </div>
 
-      <!-- 第五步：开始使用 -->
+      <!-- 第四步：开始使用 -->
       <div class="mb-6 sm:mb-8">
         <h4 class="mb-3 flex items-center text-lg font-semibold text-gray-800 sm:mb-4 sm:text-xl">
           <span
-            class="mr-2 flex h-6 w-6 items-center justify-center rounded-full bg-yellow-500 text-xs font-bold text-white sm:mr-3 sm:h-8 sm:w-8 sm:text-sm"
-            >5</span
+            class="mr-2 flex h-6 w-6 items-center justify-center rounded-full bg-orange-500 text-xs font-bold text-white sm:mr-3 sm:h-8 sm:w-8 sm:text-sm"
+            >4</span
           >
           开始使用 Claude Code
         </h4>
         <div
-          class="rounded-xl border border-yellow-100 bg-gradient-to-r from-yellow-50 to-amber-50 p-4 sm:p-6"
+          class="rounded-xl border border-orange-100 bg-gradient-to-r from-orange-50 to-yellow-50 p-4 sm:p-6"
         >
           <p class="mb-3 text-sm text-gray-700 sm:mb-4 sm:text-base">
             现在你可以开始使用 Claude Code 了！

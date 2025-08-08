@@ -1194,6 +1194,99 @@ class ClaudeAccountService {
       }
     }
   }
+
+  // 🚫 标记账户为未授权状态（401错误）
+  async markAccountUnauthorized(accountId, sessionHash = null) {
+    try {
+      const accountData = await redis.getClaudeAccount(accountId)
+      if (!accountData || Object.keys(accountData).length === 0) {
+        throw new Error('Account not found')
+      }
+
+      // 更新账户状态
+      const updatedAccountData = { ...accountData }
+      updatedAccountData.status = 'unauthorized'
+      updatedAccountData.schedulable = 'false' // 设置为不可调度
+      updatedAccountData.errorMessage = 'Account unauthorized (401 errors detected)'
+      updatedAccountData.unauthorizedAt = new Date().toISOString()
+
+      // 保存更新后的账户数据
+      await redis.setClaudeAccount(accountId, updatedAccountData)
+
+      // 如果有sessionHash，删除粘性会话映射
+      if (sessionHash) {
+        await redis.client.del(`sticky_session:${sessionHash}`)
+        logger.info(`🗑️ Deleted sticky session mapping for hash: ${sessionHash}`)
+      }
+
+      logger.warn(
+        `⚠️ Account ${accountData.name} (${accountId}) marked as unauthorized and disabled for scheduling`
+      )
+
+      return { success: true }
+    } catch (error) {
+      logger.error(`❌ Failed to mark account ${accountId} as unauthorized:`, error)
+      throw error
+    }
+  }
+
+  // 🔄 重置账户所有异常状态
+  async resetAccountStatus(accountId) {
+    try {
+      const accountData = await redis.getClaudeAccount(accountId)
+      if (!accountData || Object.keys(accountData).length === 0) {
+        throw new Error('Account not found')
+      }
+
+      // 重置账户状态
+      const updatedAccountData = { ...accountData }
+
+      // 根据是否有有效的accessToken来设置status
+      if (updatedAccountData.accessToken) {
+        updatedAccountData.status = 'active'
+      } else {
+        updatedAccountData.status = 'created'
+      }
+
+      // 恢复可调度状态
+      updatedAccountData.schedulable = 'true'
+
+      // 清除错误相关字段
+      delete updatedAccountData.errorMessage
+      delete updatedAccountData.unauthorizedAt
+      delete updatedAccountData.rateLimitedAt
+      delete updatedAccountData.rateLimitStatus
+      delete updatedAccountData.rateLimitEndAt
+
+      // 保存更新后的账户数据
+      await redis.setClaudeAccount(accountId, updatedAccountData)
+
+      // 清除401错误计数
+      const errorKey = `claude_account:${accountId}:401_errors`
+      await redis.client.del(errorKey)
+
+      // 清除限流状态（如果存在）
+      const rateLimitKey = `ratelimit:${accountId}`
+      await redis.client.del(rateLimitKey)
+
+      logger.info(
+        `✅ Successfully reset all error states for account ${accountData.name} (${accountId})`
+      )
+
+      return {
+        success: true,
+        account: {
+          id: accountId,
+          name: accountData.name,
+          status: updatedAccountData.status,
+          schedulable: updatedAccountData.schedulable === 'true'
+        }
+      }
+    } catch (error) {
+      logger.error(`❌ Failed to reset account status for ${accountId}:`, error)
+      throw error
+    }
+  }
 }
 
 module.exports = new ClaudeAccountService()

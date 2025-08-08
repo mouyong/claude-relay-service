@@ -7,35 +7,71 @@
           <p class="text-sm text-gray-600 sm:text-base">管理和监控您的 API 密钥</p>
         </div>
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <!-- Token统计时间范围选择 -->
-          <div class="flex flex-wrap items-center gap-2">
-            <select
-              v-model="apiKeyStatsTimeRange"
-              class="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 transition-colors hover:border-gray-300 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
-              @change="loadApiKeys()"
-            >
-              <option value="today">今日</option>
-              <option value="7days">最近7天</option>
-              <option value="monthly">本月</option>
-              <option value="all">全部时间</option>
-            </select>
+          <!-- 筛选器组 -->
+          <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+            <!-- 时间范围筛选 -->
+            <div class="group relative min-w-[140px]">
+              <div
+                class="absolute -inset-0.5 rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 opacity-0 blur transition duration-300 group-hover:opacity-20"
+              ></div>
+              <CustomDropdown
+                v-model="apiKeyStatsTimeRange"
+                icon="fa-calendar-alt"
+                icon-color="text-blue-500"
+                :options="timeRangeOptions"
+                placeholder="选择时间范围"
+                @change="loadApiKeys()"
+              />
+            </div>
+
             <!-- 标签筛选器 -->
-            <select
-              v-model="selectedTagFilter"
-              class="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 transition-colors hover:border-gray-300 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
-              @change="currentPage = 1"
+            <div class="group relative min-w-[140px]">
+              <div
+                class="absolute -inset-0.5 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 opacity-0 blur transition duration-300 group-hover:opacity-20"
+              ></div>
+              <div class="relative">
+                <CustomDropdown
+                  v-model="selectedTagFilter"
+                  icon="fa-tags"
+                  icon-color="text-purple-500"
+                  :options="tagOptions"
+                  placeholder="所有标签"
+                  @change="currentPage = 1"
+                />
+                <span
+                  v-if="selectedTagFilter"
+                  class="absolute -right-2 -top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-purple-500 text-xs text-white shadow-sm"
+                >
+                  {{ selectedTagCount }}
+                </span>
+              </div>
+            </div>
+
+            <!-- 刷新按钮 -->
+            <button
+              class="group relative flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-all duration-200 hover:border-gray-300 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+              :disabled="apiKeysLoading"
+              @click="loadApiKeys()"
             >
-              <option value="">所有标签</option>
-              <option v-for="tag in availableTags" :key="tag" :value="tag">
-                {{ tag }}
-              </option>
-            </select>
+              <div
+                class="absolute -inset-0.5 rounded-lg bg-gradient-to-r from-green-500 to-teal-500 opacity-0 blur transition duration-300 group-hover:opacity-20"
+              ></div>
+              <i
+                :class="[
+                  'fas relative text-green-500',
+                  apiKeysLoading ? 'fa-spinner fa-spin' : 'fa-sync-alt'
+                ]"
+              />
+              <span class="relative">刷新</span>
+            </button>
           </div>
+          <!-- 创建按钮 -->
           <button
-            class="btn btn-primary flex w-full items-center justify-center gap-2 px-4 py-2 text-sm sm:w-auto"
+            class="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 px-5 py-2.5 text-sm font-medium text-white shadow-md transition-all duration-200 hover:from-blue-600 hover:to-blue-700 hover:shadow-lg sm:w-auto"
             @click.stop="openCreateApiKeyModal"
           >
-            <i class="fas fa-plus" />创建新 Key
+            <i class="fas fa-plus"></i>
+            <span>创建新 Key</span>
           </button>
         </div>
       </div>
@@ -232,6 +268,12 @@
                           >${{ (key.dailyCost || 0).toFixed(4) }}</span
                         >
                       </div>
+                      <div class="flex items-center justify-between text-sm">
+                        <span class="text-gray-600">最后使用</span>
+                        <span class="font-medium text-gray-700">{{
+                          formatLastUsed(key.lastUsedAt)
+                        }}</span>
+                      </div>
                     </div>
 
                     <!-- 每日费用限制进度条 -->
@@ -254,48 +296,19 @@
                     </div>
 
                     <!-- 时间窗口限制进度条 -->
-                    <div v-if="key.rateLimitWindow > 0" class="space-y-1">
-                      <div class="flex items-center justify-between text-xs">
-                        <span class="text-gray-500">窗口限制</span>
-                        <span class="text-gray-700"> {{ key.rateLimitWindow }}分钟 </span>
-                      </div>
-
-                      <!-- 请求次数限制 -->
-                      <div v-if="key.rateLimitRequests > 0" class="space-y-0.5">
-                        <div class="flex items-center justify-between text-xs">
-                          <span class="text-gray-400">请求</span>
-                          <span class="text-gray-600">
-                            {{ key.currentWindowRequests || 0 }}/{{ key.rateLimitRequests }}
-                          </span>
-                        </div>
-                        <div class="h-1 w-full rounded-full bg-gray-200">
-                          <div
-                            class="h-1 rounded-full transition-all duration-300"
-                            :class="getWindowRequestProgressColor(key)"
-                            :style="{ width: getWindowRequestProgress(key) + '%' }"
-                          />
-                        </div>
-                      </div>
-
-                      <!-- Token使用量限制 -->
-                      <div v-if="key.tokenLimit > 0" class="space-y-0.5">
-                        <div class="flex items-center justify-between text-xs">
-                          <span class="text-gray-400">Token</span>
-                          <span class="text-gray-600">
-                            {{ formatTokenCount(key.currentWindowTokens || 0) }}/{{
-                              formatTokenCount(key.tokenLimit)
-                            }}
-                          </span>
-                        </div>
-                        <div class="h-1 w-full rounded-full bg-gray-200">
-                          <div
-                            class="h-1 rounded-full transition-all duration-300"
-                            :class="getWindowTokenProgressColor(key)"
-                            :style="{ width: getWindowTokenProgress(key) + '%' }"
-                          />
-                        </div>
-                      </div>
-                    </div>
+                    <WindowCountdown
+                      v-if="key.rateLimitWindow > 0"
+                      :current-requests="key.currentWindowRequests"
+                      :current-tokens="key.currentWindowTokens"
+                      :rate-limit-window="key.rateLimitWindow"
+                      :request-limit="key.rateLimitRequests"
+                      :show-progress="true"
+                      :show-tooltip="false"
+                      :token-limit="key.tokenLimit"
+                      :window-end-time="key.windowEndTime"
+                      :window-remaining-seconds="key.windowRemainingSeconds"
+                      :window-start-time="key.windowStartTime"
+                    />
 
                     <!-- 查看详情按钮 -->
                     <div class="pt-1">
@@ -396,6 +409,21 @@
                     >
                       <i class="fas fa-clock" />
                       <span class="ml-1 hidden xl:inline">续期</span>
+                    </button>
+                    <button
+                      :class="[
+                        key.isActive
+                          ? 'text-orange-600 hover:bg-orange-50 hover:text-orange-900'
+                          : 'text-green-600 hover:bg-green-50 hover:text-green-900',
+                        'rounded px-2 py-1 text-xs font-medium transition-colors'
+                      ]"
+                      :title="key.isActive ? '禁用' : '激活'"
+                      @click="toggleApiKeyStatus(key)"
+                    >
+                      <i :class="['fas', key.isActive ? 'fa-ban' : 'fa-check-circle']" />
+                      <span class="ml-1 hidden xl:inline">{{
+                        key.isActive ? '禁用' : '激活'
+                      }}</span>
                     </button>
                     <button
                       class="rounded px-2 py-1 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 hover:text-red-900"
@@ -723,6 +751,12 @@
                   <p class="text-xs text-gray-500">费用</p>
                 </div>
               </div>
+              <div class="mt-2 flex items-center justify-between">
+                <span class="text-xs text-gray-600">最后使用</span>
+                <span class="text-xs font-medium text-gray-700">{{
+                  formatLastUsed(key.lastUsedAt)
+                }}</span>
+              </div>
             </div>
 
             <!-- 限制进度 -->
@@ -743,46 +777,19 @@
             </div>
 
             <!-- 移动端时间窗口限制 -->
-            <div
+            <WindowCountdown
               v-if="key.rateLimitWindow > 0 && (key.rateLimitRequests > 0 || key.tokenLimit > 0)"
-              class="space-y-1"
-            >
-              <div class="mb-1 text-xs text-gray-500">窗口限制 ({{ key.rateLimitWindow }}分钟)</div>
-
-              <div v-if="key.rateLimitRequests > 0" class="flex items-center gap-2">
-                <span class="w-10 text-xs text-gray-500">请求</span>
-                <div class="flex-1">
-                  <div class="h-1.5 w-full rounded-full bg-gray-200">
-                    <div
-                      class="h-1.5 rounded-full transition-all duration-300"
-                      :class="getWindowRequestProgressColor(key)"
-                      :style="{ width: getWindowRequestProgress(key) + '%' }"
-                    />
-                  </div>
-                </div>
-                <span class="w-16 text-right text-xs text-gray-600">
-                  {{ key.currentWindowRequests || 0 }}/{{ key.rateLimitRequests }}
-                </span>
-              </div>
-
-              <div v-if="key.tokenLimit > 0" class="flex items-center gap-2">
-                <span class="w-10 text-xs text-gray-500">Token</span>
-                <div class="flex-1">
-                  <div class="h-1.5 w-full rounded-full bg-gray-200">
-                    <div
-                      class="h-1.5 rounded-full transition-all duration-300"
-                      :class="getWindowTokenProgressColor(key)"
-                      :style="{ width: getWindowTokenProgress(key) + '%' }"
-                    />
-                  </div>
-                </div>
-                <span class="w-16 text-right text-xs text-gray-600">
-                  {{ formatTokenCount(key.currentWindowTokens || 0) }}/{{
-                    formatTokenCount(key.tokenLimit)
-                  }}
-                </span>
-              </div>
-            </div>
+              :current-requests="key.currentWindowRequests"
+              :current-tokens="key.currentWindowTokens"
+              :rate-limit-window="key.rateLimitWindow"
+              :request-limit="key.rateLimitRequests"
+              :show-progress="true"
+              :show-tooltip="false"
+              :token-limit="key.tokenLimit"
+              :window-end-time="key.windowEndTime"
+              :window-remaining-seconds="key.windowRemainingSeconds"
+              :window-start-time="key.windowStartTime"
+            />
           </div>
 
           <!-- 时间信息 -->
@@ -856,6 +863,18 @@
             >
               <i class="fas fa-clock mr-1" />
               续期
+            </button>
+            <button
+              :class="[
+                key.isActive
+                  ? 'bg-orange-50 text-orange-600 hover:bg-orange-100'
+                  : 'bg-green-50 text-green-600 hover:bg-green-100',
+                'rounded-lg px-3 py-2 text-xs transition-colors'
+              ]"
+              @click="toggleApiKeyStatus(key)"
+            >
+              <i :class="['fas', key.isActive ? 'fa-ban' : 'fa-check-circle', 'mr-1']" />
+              {{ key.isActive ? '禁用' : '激活' }}
             </button>
             <button
               class="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600 transition-colors hover:bg-red-100"
@@ -1019,6 +1038,8 @@ import NewApiKeyModal from '@/components/apikeys/NewApiKeyModal.vue'
 import BatchApiKeyModal from '@/components/apikeys/BatchApiKeyModal.vue'
 import ExpiryEditModal from '@/components/apikeys/ExpiryEditModal.vue'
 import UsageDetailModal from '@/components/apikeys/UsageDetailModal.vue'
+import WindowCountdown from '@/components/apikeys/WindowCountdown.vue'
+import CustomDropdown from '@/components/common/CustomDropdown.vue'
 
 // 响应式数据
 const clientsStore = useClientsStore()
@@ -1040,6 +1061,28 @@ const selectedApiKeyForDetail = ref(null)
 // 标签相关
 const selectedTagFilter = ref('')
 const availableTags = ref([])
+
+// 下拉选项数据
+const timeRangeOptions = ref([
+  { value: 'today', label: '今日', icon: 'fa-clock' },
+  { value: '7days', label: '最近7天', icon: 'fa-calendar-week' },
+  { value: 'monthly', label: '本月', icon: 'fa-calendar' },
+  { value: 'all', label: '全部时间', icon: 'fa-infinity' }
+])
+
+const tagOptions = computed(() => {
+  const options = [{ value: '', label: '所有标签', icon: 'fa-asterisk' }]
+  availableTags.value.forEach((tag) => {
+    options.push({ value: tag, label: tag, icon: 'fa-tag' })
+  })
+  return options
+})
+
+const selectedTagCount = computed(() => {
+  if (!selectedTagFilter.value) return 0
+  return apiKeys.value.filter((key) => key.tags && key.tags.includes(selectedTagFilter.value))
+    .length
+})
 
 // 分页相关
 const currentPage = ref(1)
@@ -1510,6 +1553,49 @@ const handleRenewSuccess = () => {
   loadApiKeys()
 }
 
+// 切换API Key状态（激活/禁用）
+const toggleApiKeyStatus = async (key) => {
+  let confirmed = true
+
+  // 禁用时需要二次确认
+  if (key.isActive) {
+    if (window.showConfirm) {
+      confirmed = await window.showConfirm(
+        '禁用 API Key',
+        `确定要禁用 API Key "${key.name}" 吗？禁用后所有使用此 Key 的请求将返回 401 错误。`,
+        '确定禁用',
+        '取消'
+      )
+    } else {
+      // 降级方案
+      confirmed = confirm(
+        `确定要禁用 API Key "${key.name}" 吗？禁用后所有使用此 Key 的请求将返回 401 错误。`
+      )
+    }
+  }
+
+  if (!confirmed) return
+
+  try {
+    const data = await apiClient.put(`/admin/api-keys/${key.id}`, {
+      isActive: !key.isActive
+    })
+
+    if (data.success) {
+      showToast(`API Key 已${key.isActive ? '禁用' : '激活'}`, 'success')
+      // 更新本地数据
+      const localKey = apiKeys.value.find((k) => k.id === key.id)
+      if (localKey) {
+        localKey.isActive = !key.isActive
+      }
+    } else {
+      showToast(data.message || '操作失败', 'error')
+    }
+  } catch (error) {
+    showToast('操作失败', 'error')
+  }
+}
+
 // 删除API Key
 const deleteApiKey = async (keyId) => {
   let confirmed = false
@@ -1662,34 +1748,17 @@ const formatTokenCount = (count) => {
   return count.toString()
 }
 
-// 获取窗口请求进度
-const getWindowRequestProgress = (key) => {
-  if (!key.rateLimitRequests || key.rateLimitRequests === 0) return 0
-  const percentage = ((key.currentWindowRequests || 0) / key.rateLimitRequests) * 100
-  return Math.min(percentage, 100)
-}
-
-// 获取窗口请求进度条颜色
-const getWindowRequestProgressColor = (key) => {
-  const progress = getWindowRequestProgress(key)
-  if (progress >= 100) return 'bg-red-500'
-  if (progress >= 80) return 'bg-yellow-500'
-  return 'bg-blue-500'
-}
-
-// 获取窗口Token进度
-const getWindowTokenProgress = (key) => {
-  if (!key.tokenLimit || key.tokenLimit === 0) return 0
-  const percentage = ((key.currentWindowTokens || 0) / key.tokenLimit) * 100
-  return Math.min(percentage, 100)
-}
-
-// 获取窗口Token进度条颜色
-const getWindowTokenProgressColor = (key) => {
-  const progress = getWindowTokenProgress(key)
-  if (progress >= 100) return 'bg-red-500'
-  if (progress >= 80) return 'bg-yellow-500'
-  return 'bg-purple-500'
+// 格式化最后使用时间
+const formatLastUsed = (dateString) => {
+  if (!dateString) return '从未使用'
+  const date = new Date(dateString)
+  const now = new Date()
+  const diff = now - date
+  if (diff < 60000) return '刚刚'
+  if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`
+  if (diff < 604800000) return `${Math.floor(diff / 86400000)} 天前`
+  return date.toLocaleDateString('zh-CN')
 }
 
 // 监听筛选条件变化，重置页码

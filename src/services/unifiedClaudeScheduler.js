@@ -551,6 +551,35 @@ class UnifiedClaudeScheduler {
     }
   }
 
+  // 🚫 标记账户为未授权状态（401错误）
+  async markAccountUnauthorized(accountId, accountType, sessionHash = null) {
+    try {
+      // 只处理claude-official类型的账户，不处理claude-console和gemini
+      if (accountType === 'claude-official') {
+        await claudeAccountService.markAccountUnauthorized(accountId, sessionHash)
+
+        // 删除会话映射
+        if (sessionHash) {
+          await this._deleteSessionMapping(sessionHash)
+        }
+
+        logger.warn(`🚫 Account ${accountId} marked as unauthorized due to consecutive 401 errors`)
+      } else {
+        logger.info(
+          `ℹ️ Skipping unauthorized marking for non-Claude OAuth account: ${accountId} (${accountType})`
+        )
+      }
+
+      return { success: true }
+    } catch (error) {
+      logger.error(
+        `❌ Failed to mark account as unauthorized: ${accountId} (${accountType})`,
+        error
+      )
+      throw error
+    }
+  }
+
   // 🚫 标记Claude Console账户为封锁状态（模型不支持）
   async blockConsoleAccount(accountId, reason) {
     try {
